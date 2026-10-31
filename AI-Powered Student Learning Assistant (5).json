@@ -1,0 +1,3792 @@
+{
+  "name": "AI-Powered Student Learning Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const root = $json.body || $json || {};\nconst data = root.data || {};\n\nconst key = data.key || {};\nconst message = data.message || {};\n\nconst waNumber = String(\n  key.remoteJidAlt ||\n  key.remoteJid ||\n  \"\"\n)\n  .replace(/@s\\.whatsapp\\.net$/, \"\")\n  .replace(/@lid$/, \"\")\n  .replace(/[^0-9]/g, \"\");\n\nconst pushName = String(data.pushName || \"\").trim();\n\nconst messageType = String(\n  data.messageType || \"\"\n).trim();\n\nlet messageText = \"\";\nlet mediaType = null;\nlet hasMedia = false;\n\n// TEXT\nif (message.conversation) {\n  messageText = message.conversation;\n}\n\nelse if (message.extendedTextMessage?.text) {\n  messageText = message.extendedTextMessage.text;\n}\n\n// IMAGE\nelse if (message.imageMessage) {\n  mediaType = \"image\";\n  hasMedia = true;\n  messageText = message.imageMessage.caption || \"\";\n}\n\n// VIDEO\nelse if (message.videoMessage) {\n  mediaType = \"video\";\n  hasMedia = true;\n  messageText = message.videoMessage.caption || \"\";\n}\n\n// AUDIO\nelse if (message.audioMessage) {\n  mediaType = \"audio\";\n  hasMedia = true;\n}\n\n// DOCUMENT\nelse if (message.documentMessage) {\n  mediaType = \"document\";\n  hasMedia = true;\n}\n\n// BUTTON\nelse if (message.buttonsResponseMessage?.selectedDisplayText) {\n  messageText = message.buttonsResponseMessage.selectedDisplayText;\n}\n\n// LIST\nelse if (message.listResponseMessage?.title) {\n  messageText = message.listResponseMessage.title;\n}\n\nmessageText = String(messageText || \"\").trim();\n\nreturn {\n  json: {\n    event: root.event || \"\",\n    instance: root.instance || \"\",\n\n    waNumber,\n    pushName,\n\n    messageType,\n    mediaType,\n    hasMedia,\n\n    messageText,\n\n    messageId: String(key.id || `MSG-${Date.now()}`),\n\n    fromMe: Boolean(key.fromMe),\n\n    isText: messageType === \"conversation\" ||\n            !!message.conversation ||\n            !!message.extendedTextMessage,\n\n    isImage: !!message.imageMessage,\n\n    isAudio: !!message.audioMessage,\n\n    isVideo: !!message.videoMessage,\n\n    isDocument: !!message.documentMessage,\n\n    receivedAt: new Date().toISOString(),\n\n    // Keep the original message so later nodes can access media information\n    originalMessage: message,\n  }\n};"
+      },
+      "id": "0e8217ef-b886-42e4-96d1-a29266d79635",
+      "name": "Code - Normalize Incoming Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6640,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "v1",
+              "leftValue": "={{ $json.isText }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b692bc4c-226e-4b7f-9ae3-f226131dde75",
+      "name": "IF - Valid Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -6416,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Students"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "WhatsApp Number",
+              "lookupValue": "={{ $json.waNumber }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2c584a60-a6bf-415a-8140-20f6a8c2a580",
+      "name": "Sheets - Find Student",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -6192,
+        1104
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ $json['Student ID'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fc8c68b4-0426-4dd3-907a-283a64695482",
+      "name": "IF - Student Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -5968,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Students"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "Student ID"
+          ],
+          "value": {
+            "Student ID": "={{ $json['Student ID'] }}",
+            "Last Activity": "={{ $now.toISO() }}",
+            "Student Status": "ACTIVE"
+          },
+          "schema": [
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "required": false,
+              "display": true
+            },
+            {
+              "id": "Last Activity",
+              "displayName": "Last Activity",
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "required": false,
+              "display": true
+            },
+            {
+              "id": "Student Status",
+              "displayName": "Student Status",
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "required": false,
+              "display": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4d49340b-20b4-43c8-a739-120486e97956",
+      "name": "Sheets - Update Last Activity",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -5552,
+        1008
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $(\"Code - Normalize Incoming Payload\").item.json;\nconst id = \"STU-\" + n.waNumber.slice(-6) + \"-\" + String(Date.now()).slice(-4);\nconst now = new Date().toISOString();\nreturn { json: {\n  \"Student ID\": id,\n  \"Student Name\": n.pushName || \"New Student\",\n  \"WhatsApp Number\": n.waNumber,\n  \"University\": \"\",\n  \"Major\": \"\",\n  \"Academic Level\": \"\",\n  \"Preferred Language\": \"English\",\n  \"Preferred Explanation Level\": \"intermediate\",\n  \"Current Semester\": \"\",\n  \"Registration Date\": now,\n  \"Last Activity\": now,\n  \"Student Status\": \"ACTIVE\"\n} };"
+      },
+      "id": "44d2a42e-ed15-4268-a77a-f4f6fc1b19fb",
+      "name": "Code - Build New Student Profile",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5744,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 101,
+          "mode": "list",
+          "cachedResultName": "Students",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit#gid=101"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Student ID": "={{ $json['Student ID'] }}",
+            "Student Name": "={{ $json['Student Name'] }}",
+            "WhatsApp Number": "={{ $json['WhatsApp Number'] }}",
+            "University": "={{ $json.University }}",
+            "Major": "={{ $json.Major }}",
+            "Academic Level": "={{ $json['Academic Level'] }}",
+            "Preferred Language": "={{ $json['Preferred Language'] }}",
+            "Preferred Explanation Level": "={{ $json['Preferred Explanation Level'] }}",
+            "Current Semester": "={{ $json['Current Semester'] }}",
+            "Registration Date": "={{ $json['Registration Date'] }}",
+            "Last Activity": "={{ $json['Last Activity'] }}",
+            "Student Status": "={{ $json['Student Status'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Name",
+              "displayName": "Student Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "WhatsApp Number",
+              "displayName": "WhatsApp Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "University",
+              "displayName": "University",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Major",
+              "displayName": "Major",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Academic Level",
+              "displayName": "Academic Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preferred Language",
+              "displayName": "Preferred Language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Preferred Explanation Level",
+              "displayName": "Preferred Explanation Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current Semester",
+              "displayName": "Current Semester",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Registration Date",
+              "displayName": "Registration Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Activity",
+              "displayName": "Last Activity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Student Status",
+              "displayName": "Student Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "df28c512-28d1-41f2-b6e0-38ec91fc42ed",
+      "name": "Sheets - Create Student Profile",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -5552,
+        1264
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "i1",
+              "name": "responseText",
+              "value": "Sorry, I could not read your message. Please send your question as plain text so I can help you.",
+              "type": "string"
+            },
+            {
+              "id": "i2",
+              "name": "waNumber",
+              "value": "={{ $json.waNumber }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "52b4e243-dc4e-4b85-8a42-883cad62fb10",
+      "name": "Edit Fields - Prepare Invalid Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -6192,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const n = $(\"Code - Normalize Incoming Payload\").first().json;\nconst p = $json || {};\nreturn { json: {\n  studentId: p[\"Student ID\"] || \"\",\n  studentName: p[\"Student Name\"] || n.pushName || \"Student\",\n  waNumber: n.waNumber,\n  university: p[\"University\"] || \"\",\n  major: p[\"Major\"] || \"\",\n  academicLevel: p[\"Academic Level\"] || \"\",\n  preferredLanguage: p[\"Preferred Language\"] || \"English\",\n  explanationLevel: p[\"Preferred Explanation Level\"] || \"intermediate\",\n  semester: p[\"Current Semester\"] || \"\",\n  status: p[\"Student Status\"] || \"ACTIVE\",\n  messageText: n.messageText,\n  messageId: n.messageId,\n  timestamp: new Date().toISOString(),\n} };"
+      },
+      "id": "2a6cdbcd-7b7f-4dd8-a42e-cc39b8ba7166",
+      "name": "Code - Assemble Student Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5152,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Student message: \"{{ $json.messageText }}\"\nStudent level: {{ $json.explanationLevel }} | Preferred language: {{ $json.preferredLanguage }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an intent classifier for a university student assistant.\n\nClassify the student message into exactly one of these intents:\n\nSTUDY_EXPLANATION\nQUESTION_SOLVING\nSUMMARY\nQUIZ\nSTUDY_PLAN\nPROGRESS\nCOURSE_INFORMATION\nGENERAL_INFORMATION\nHUMAN_SUPPORT\nEMERGENCY\nUNKNOWN\n\nYou MUST return ONLY a valid JSON object.\nDo not return Markdown.\nDo not use ```json code fences.\nDo not include explanations, comments, or any text before or after the JSON.\n\nThe JSON must contain EXACTLY these fields:\n\n{\n  \"intent\": \"STUDY_EXPLANATION\",\n  \"confidence\": 0.94,\n  \"priority\": \"NORMAL\",\n  \"requires_human\": false,\n  \"is_emergency\": false,\n  \"course\": \"\",\n  \"topic\": \"\"\n}\n\nRules:\n\n- intent must be exactly one of the allowed intents.\n- confidence must be a NUMBER between 0 and 1, never a string or percentage.\n- priority must be exactly LOW, NORMAL, or HIGH.\n- requires_human must be a boolean true or false.\n- is_emergency must be a boolean true or false.\n- course must always be a string. Use \"\" when unknown.\n- topic must always be a string. Use \"\" when unknown.\n- Set is_emergency=true and priority=HIGH only for urgent academic/administrative problems, account/access failures, or anything unsafe for automation.\n- Set requires_human=true when the student explicitly asks for a human or when the request is beyond study help.\n- If the message is unclear, use UNKNOWN with low confidence.\n- Never invent course-specific facts.\n\nReturn ONLY the JSON object."
+        }
+      },
+      "id": "818ac685-bfa8-41c2-b14c-f850d7680a28",
+      "name": "AI - Classify Intent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -4960,
+        1104
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "58b444ad-44ca-4d09-a923-03fe8275f986",
+      "name": "LLM - Intent Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -5104,
+        1360
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AAH5WrWvVrr7fa6B",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"intent\": \"STUDY_EXPLANATION\",\n  \"confidence\": 0.94,\n  \"priority\": \"NORMAL\",\n  \"requires_human\": false,\n  \"is_emergency\": false,\n  \"course\": \"Databases\",\n  \"topic\": \"Normalization\"\n}"
+      },
+      "id": "14707c3a-a777-4b21-ac52-cb02b7907af2",
+      "name": "Parser - Intent Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -4752,
+        1312
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = ($json.output && typeof $json.output === \"object\") ? $json.output : $json;\nconst valid = [\"STUDY_EXPLANATION\",\"QUESTION_SOLVING\",\"SUMMARY\",\"QUIZ\",\"STUDY_PLAN\",\"PROGRESS\",\"COURSE_INFORMATION\",\"GENERAL_INFORMATION\",\"HUMAN_SUPPORT\",\"EMERGENCY\",\"UNKNOWN\"];\nlet intent = String(raw.intent || \"UNKNOWN\").toUpperCase();\nif (!valid.includes(intent)) intent = \"UNKNOWN\";\nlet confidence = Number(raw.confidence);\nif (isNaN(confidence) || confidence < 0 || confidence > 1) confidence = 0;\nlet priority = String(raw.priority || \"NORMAL\").toUpperCase();\nif (![\"LOW\",\"NORMAL\",\"HIGH\"].includes(priority)) priority = \"NORMAL\";\nconst isEmergency = raw.is_emergency === true || intent === \"EMERGENCY\";\nconst requiresHuman = raw.requires_human === true || intent === \"HUMAN_SUPPORT\" || isEmergency;\nif (confidence > 0 && confidence < 0.35 && !isEmergency) intent = \"UNKNOWN\";\nreturn { json: {\n  intent, confidence, priority,\n  is_emergency: isEmergency,\n  requires_human: requiresHuman,\n  course: String(raw.course || \"\"),\n  topic: String(raw.topic || \"\"),\n} };"
+      },
+      "id": "2c5a791a-b2a3-4597-930c-0be950d3a8ea",
+      "name": "Code - Validate Classification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4384,
+        1088
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "intent",
+              "value": "HUMAN_SUPPORT",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "confidence",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "f3",
+              "name": "priority",
+              "value": "HIGH",
+              "type": "string"
+            },
+            {
+              "id": "f4",
+              "name": "requires_human",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "f5",
+              "name": "is_emergency",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "f6",
+              "name": "course",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "f7",
+              "name": "topic",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "bbbc8c75-06d0-4da6-8be5-90c8eaad1889",
+      "name": "Edit Fields - Classification Fallback",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -4608,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "g1",
+              "leftValue": "={{ $json.is_emergency }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "g2",
+              "leftValue": "={{ $json.requires_human }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "7632164c-8579-4aa0-a6ed-66d23ac9bc80",
+      "name": "IF - Emergency or Human Required?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -4160,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "m1",
+              "name": "priority",
+              "value": "HIGH",
+              "type": "string"
+            },
+            {
+              "id": "m2",
+              "name": "incidentId",
+              "value": "={{ \"INC-\" + $now.toMillis() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "9ec0e23b-14bc-44bc-8691-5be2b39c82b1",
+      "name": "Edit Fields - Mark High Priority",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1696,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Escalations"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Incident ID": "={{ $json.incidentId }}",
+            "Student ID": "={{ $('Code - Assemble Student Context').item.json.studentId }}",
+            "WhatsApp Number": "={{ $('Code - Assemble Student Context').item.json.waNumber }}",
+            "Message": "={{ $('Code - Assemble Student Context').item.json.messageText }}",
+            "Intent": "={{ $json.intent }}",
+            "Priority": "HIGH",
+            "Status": "OPEN",
+            "Created At": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "Incident ID",
+              "displayName": "Incident ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "WhatsApp Number",
+              "displayName": "WhatsApp Number",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Intent",
+              "displayName": "Intent",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Created At",
+              "displayName": "Created At",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "96d43225-e9db-499c-a629-0e76d579b6c0",
+      "name": "Sheets - Log Emergency Incident",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1408,
+        128
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ea1",
+              "name": "responseText",
+              "value": "=Thank you {{ $('Code - Assemble Student Context').item.json.studentName }}. Your request has been flagged as HIGH PRIORITY and forwarded to a human advisor. Reference: {{ $('Edit Fields - Mark High Priority').item.json.incidentId }}. Someone will contact you shortly. I will not attempt to resolve this automatically.",
+              "type": "string"
+            },
+            {
+              "id": "ea2",
+              "name": "responseType",
+              "value": "EMERGENCY",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4db59465-cdb1-42c0-ab60-06e8f5fdd0e0",
+      "name": "Edit Fields - Prepare Emergency Ack",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fz1",
+              "name": "waNumber",
+              "value": "={{ $('Code - Assemble Student Context').item.json.waNumber }}",
+              "type": "string"
+            },
+            {
+              "id": "fz2",
+              "name": "responseText",
+              "value": "={{ $json.responseText }}",
+              "type": "string"
+            },
+            {
+              "id": "fz3",
+              "name": "responseType",
+              "value": "={{ $json.responseType }}",
+              "type": "string"
+            },
+            {
+              "id": "fz4",
+              "name": "studentId",
+              "value": "={{ $('Code - Assemble Student Context').item.json.studentId }}",
+              "type": "string"
+            },
+            {
+              "id": "fz5",
+              "name": "messageId",
+              "value": "={{ $('Code - Assemble Student Context').item.json.messageId }}",
+              "type": "string"
+            },
+            {
+              "id": "fz6",
+              "name": "studentMessage",
+              "value": "={{ $('Code - Assemble Student Context').item.json.messageText }}",
+              "type": "string"
+            },
+            {
+              "id": "fz7",
+              "name": "intent",
+              "value": "={{ $('Code - Validate Classification').item.json.intent }}",
+              "type": "string"
+            },
+            {
+              "id": "fz8",
+              "name": "confidence",
+              "value": "={{ $('Code - Validate Classification').item.json.confidence }}",
+              "type": "string"
+            },
+            {
+              "id": "fz9",
+              "name": "priority",
+              "value": "={{ $('Code - Validate Classification').item.json.priority }}",
+              "type": "string"
+            },
+            {
+              "id": "fz10",
+              "name": "course",
+              "value": "={{ $('Code - Validate Classification').item.json.course }}",
+              "type": "string"
+            },
+            {
+              "id": "fz11",
+              "name": "topic",
+              "value": "={{ $('Code - Validate Classification').item.json.topic }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "16dda2b7-1c2e-4df7-93c1-bd171e1fccbf",
+      "name": "Edit Fields - Finalize Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        496,
+        1440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Conversations"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Student ID": "={{ $('Edit Fields - Finalize Response').item.json.studentId }}",
+            "Message ID": "={{ $('Edit Fields - Finalize Response').item.json.messageId }}",
+            "Student Message": "={{ $('Edit Fields - Finalize Response').item.json.studentMessage }}",
+            "Detected Intent": "={{ $('Edit Fields - Finalize Response').item.json.intent }}",
+            "AI Response": "={{ $('Edit Fields - Finalize Response').item.json.responseText }}",
+            "Timestamp": "={{ $now.toISO() }}",
+            "Confidence": "={{ $('Edit Fields - Finalize Response').item.json.confidence }}",
+            "Priority": "={{ $('Edit Fields - Finalize Response').item.json.priority }}",
+            "Course": "={{ $('Edit Fields - Finalize Response').item.json.course }}",
+            "Topic": "={{ $('Edit Fields - Finalize Response').item.json.topic }}"
+          },
+          "schema": [
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Message ID",
+              "displayName": "Message ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Student Message",
+              "displayName": "Student Message",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Detected Intent",
+              "displayName": "Detected Intent",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "AI Response",
+              "displayName": "AI Response",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Confidence",
+              "displayName": "Confidence",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Course",
+              "displayName": "Course",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "79c2045b-cc74-4d19-abda-928db8e07071",
+      "name": "Log - Save Conversation",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1232,
+        1040
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Escalations"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Incident ID": "={{ \"ERR-\" + $now.toMillis() }}",
+            "Student ID": "={{ $('Edit Fields - Finalize Response').item.json.studentId }}",
+            "WhatsApp Number": "={{ $('Edit Fields - Finalize Response').item.json.waNumber }}",
+            "Message": "WhatsApp send failed",
+            "Intent": "ERROR",
+            "Priority": "HIGH",
+            "Status": "OPEN",
+            "Created At": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "Incident ID",
+              "displayName": "Incident ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "WhatsApp Number",
+              "displayName": "WhatsApp Number",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Intent",
+              "displayName": "Intent",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Created At",
+              "displayName": "Created At",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3f022854-82d9-43f4-9376-31ee40208926",
+      "name": "Sheets - Log Send Failure",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1232,
+        1264
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r0",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "STUDY_EXPLANATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "STUDY_EXPLANATION"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "QUESTION_SOLVING",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "QUESTION_SOLVING"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "SUMMARY",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SUMMARY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r3",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "QUIZ",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "QUIZ"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r4",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "STUDY_PLAN",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "STUDY_PLAN"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r5",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "PROGRESS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PROGRESS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r6",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "COURSE_INFORMATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COURSE_INFORMATION"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r7",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "GENERAL_INFORMATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GENERAL_INFORMATION"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "r8",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "HUMAN_SUPPORT",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "HUMAN_SUPPORT"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "UNKNOWN"
+        }
+      },
+      "id": "311c94e9-f99a-4cf3-a9de-9590f888b92a",
+      "name": "Switch - Student Intent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -4176,
+        2096
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ex1",
+              "name": "agentPrompt",
+              "value": "=The student (level: {{ $('Code - Assemble Student Context').item.json.explanationLevel }}, language: {{ $('Code - Assemble Student Context').item.json.preferredLanguage }}) asks for an EXPLANATION. Course: {{ $json.course }} | Topic: {{ $json.topic }}. Message: \"{{ $('Code - Assemble Student Context').item.json.messageText }}\". Search the course materials, then explain clearly and step by step, adapted to the student level.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a749a4cf-a2f3-47e6-9ed7-b1a13e11ed56",
+      "name": "Edit Fields - Build Explanation Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1408,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.agentPrompt }}",
+        "options": {
+          "systemMessage": "You are an academic study assistant for university students on WhatsApp. You help students understand concepts, solve problems step by step, and study more effectively. ALWAYS call the search_course_materials tool for course-specific questions before answering. Ground course-specific answers in retrieved material. If the knowledge base returns nothing relevant, clearly state that you could not find it in the course materials, then you may use the search_wikipedia tool for general background/definitions - but clearly label such content as general reference, not official course material, and never use it to override course policies or graded answers. Avoid inventing facts, and offer to escalate to a human or ask for more detail. Adapt depth to the student explanation level. Prefer explaining reasoning over just giving final answers. If a question is ambiguous, ask a clarifying question instead of guessing. Keep answers well structured and WhatsApp-friendly. You are NOT a professor or an official university representative; do not make administrative promises."
+        }
+      },
+      "id": "d4c92fe5-433d-4790-95e3-5bee3c91a0e5",
+      "name": "AI Agent - Student Assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -768,
+        448
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "b3da8bbb-1b22-4ec5-bf79-f24f6c6216b1",
+      "name": "LLM - Assistant Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -832,
+        688
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AAH5WrWvVrr7fa6B",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Code - Assemble Student Context').item.json.waNumber }}",
+        "contextWindowLength": 8
+      },
+      "id": "89e371a3-3017-4945-aa99-84ed4ef65392",
+      "name": "Memory - Conversation Buffer",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -704,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search the university course knowledge base (lecture notes, PDFs, summaries, definitions, formulas, policies, FAQs). Use this before answering course-specific questions. If nothing relevant is returned, say so instead of inventing facts.",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "course-materials",
+          "mode": "list",
+          "cachedResultName": "course-materials"
+        },
+        "options": {
+          "pineconeNamespace": "course_materials"
+        }
+      },
+      "id": "667d7067-2a1b-438b-ba60-73473783409c",
+      "name": "search_course_materials",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        -576,
+        688
+      ],
+      "credentials": {
+        "pineconeApi": {
+          "id": "PUCLBvTZIkvCizeu",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3a6cbf0c-6459-4e38-88ee-560a563ae9e6",
+      "name": "Embeddings - KB",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -496,
+        896
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AAH5WrWvVrr7fa6B",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "eaa33742-3c11-4893-9d70-024d10f51f23",
+      "name": "search_wikipedia",
+      "type": "@n8n/n8n-nodes-langchain.toolWikipedia",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ag1",
+              "name": "responseText",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "ag2",
+              "name": "responseType",
+              "value": "AGENT",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7afbdd03-c3fa-40a4-84e3-d27f0e733d88",
+      "name": "Edit Fields - Format Agent Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "af1",
+              "name": "responseText",
+              "value": "I had trouble generating a full answer just now. Please rephrase your question, or reply \"help\" to reach a human advisor.",
+              "type": "string"
+            },
+            {
+              "id": "af2",
+              "name": "responseType",
+              "value": "AI_FALLBACK",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ebace7be-06cb-4808-b094-ac8d158e07bb",
+      "name": "Edit Fields - AI Fallback Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "am1",
+              "leftValue": "={{ $('Code - Assemble Student Context').item.json.messageText.length }}",
+              "rightValue": 12,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ee43080c-cb33-4c9c-bd30-57c927373db8",
+      "name": "IF - Question Ambiguous?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1696,
+        976
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cl1",
+              "name": "responseText",
+              "value": "Your question looks a bit short or unclear. Could you share the full question (and the course/topic if possible) so I can give you an accurate, worked explanation?",
+              "type": "string"
+            },
+            {
+              "id": "cl2",
+              "name": "responseType",
+              "value": "CLARIFICATION",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e7ba4d0c-4217-45a7-891a-9e97bbbad74f",
+      "name": "Edit Fields - Ask Clarification",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "qa1",
+              "name": "agentPrompt",
+              "value": "=The student asks a QUESTION to solve. Course: {{ $json.course }} | Topic: {{ $json.topic }}. Question: \"{{ $('Code - Assemble Student Context').item.json.messageText }}\". Retrieve relevant material, then explain the reasoning step by step before giving the final answer. If key information is missing, ask a clarifying question instead of guessing.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00faf19d-2c8f-4738-b3d0-8198fc067942",
+      "name": "Edit Fields - Build QA Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1408,
+        1040
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "lg1",
+              "leftValue": "={{ $('Code - Assemble Student Context').item.json.messageText.length }}",
+              "rightValue": 1500,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0f2edebe-c7d0-494d-ad82-364b6ade6f3d",
+      "name": "IF - Content Long?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1696,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const text = $(\"Code - Assemble Student Context\").item.json.messageText || \"\";\nconst size = 1500;\nconst chunks = [];\nfor (let i = 0; i < text.length; i += size) { chunks.push(text.slice(i, i + size)); }\nconst sep = String.fromCharCode(10) + \"---\" + String.fromCharCode(10);\nreturn { json: { summaryInput: chunks.join(sep), chunkCount: chunks.length } };"
+      },
+      "id": "d3d2c825-354c-41a9-a39d-706f4be76353",
+      "name": "Code - Chunk Long Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        1296
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Summarize the following study material for a {{ $('Code - Assemble Student Context').item.json.explanationLevel }} student. Content: \"\"\"{{ $json.summaryInput || $('Code - Assemble Student Context').item.json.messageText }}\"\"\". Produce sections: Main Concepts, Key Definitions, Important Points, Formulas (if any), Examples, and a short Quick Revision list.",
+        "batching": {}
+      },
+      "id": "f38cde76-6d28-433a-8b2c-ef8614ba94df",
+      "name": "LLM - Generate Summary",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -640,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "18f55f91-f280-46ff-973a-b307261ec835",
+      "name": "LLM - Summary Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -560,
+        1296
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AAH5WrWvVrr7fa6B",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sm1",
+              "name": "responseText",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "sm2",
+              "name": "responseType",
+              "value": "SUMMARY",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00b6e64d-cfd1-477d-9d24-acc7625e3505",
+      "name": "Edit Fields - Format Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        1136
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "qs1",
+              "leftValue": "={{ $('Code - Assemble Student Context').item.json.messageText }}",
+              "rightValue": "answers:",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "76192ec4-8d9e-4fc2-837a-38fec27e7886",
+      "name": "IF - Is Quiz Submission?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2208,
+        1728
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const msg = $(\"Code - Assemble Student Context\").item.json.messageText || \"\";\nconst after = msg.split(/answers\\s*:/i)[1] || \"\";\nconst given = after.split(/[^A-Da-d]+/).filter(Boolean).map(function(s){ return s.toUpperCase(); });\nconst keyRaw = $(\"Code - Assemble Student Context\").item.json.answerKey || \"\";\nconst key = keyRaw ? keyRaw.split(\",\") : given.map(function(){ return \"A\"; });\nlet correct = 0;\nconst total = Math.max(given.length, key.length) || 1;\nfor (let i = 0; i < Math.min(given.length, key.length); i++) { if (given[i] === key[i]) correct++; }\nconst score = Math.round((correct / total) * 100);\nlet level = \"Needs Work\"; if (score >= 80) level = \"Strong\"; else if (score >= 50) level = \"Developing\";\nreturn { json: {\n  quizId: \"QZ-EVAL-\" + Date.now(),\n  course: $(\"Code - Validate Classification\").item.json.course,\n  topic: $(\"Code - Validate Classification\").item.json.topic,\n  numberOfQuestions: total,\n  correctAnswers: correct,\n  score,\n  performanceLevel: level,\n} };"
+      },
+      "id": "ce164b4a-eb67-46be-a335-f6619da77514",
+      "name": "Code - Calculate Quiz Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        1568
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Quiz Results"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Student ID": "={{ $('Code - Assemble Student Context').item.json.studentId }}",
+            "Quiz ID": "={{ $json.quizId }}",
+            "Course": "={{ $json.course }}",
+            "Topic": "={{ $json.topic }}",
+            "Number of Questions": "={{ $json.numberOfQuestions }}",
+            "Correct Answers": "={{ $json.correctAnswers }}",
+            "Score": "={{ $json.score }}",
+            "Date": "={{ $now.toISO() }}",
+            "Performance Level": "={{ $json.performanceLevel }}"
+          },
+          "schema": [
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Quiz ID",
+              "displayName": "Quiz ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Course",
+              "displayName": "Course",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Number of Questions",
+              "displayName": "Number of Questions",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Correct Answers",
+              "displayName": "Correct Answers",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Score",
+              "displayName": "Score",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Performance Level",
+              "displayName": "Performance Level",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c33d71ad-aef7-49aa-b42b-f2aa25f91731",
+      "name": "Sheets - Save Quiz Result",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1408,
+        1568
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Study Progress"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Student ID": "={{ $('Code - Assemble Student Context').item.json.studentId }}",
+            "Course": "={{ $('Code - Calculate Quiz Score').item.json.course }}",
+            "Topic": "={{ $('Code - Calculate Quiz Score').item.json.topic }}",
+            "Quiz Score": "={{ $('Code - Calculate Quiz Score').item.json.score }}",
+            "Last Studied": "={{ $now.toISO() }}",
+            "Mastery Level": "={{ $('Code - Calculate Quiz Score').item.json.performanceLevel }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Course",
+              "displayName": "Course",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Quiz Score",
+              "displayName": "Quiz Score",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Number of Attempts",
+              "displayName": "Number of Attempts",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "Last Studied",
+              "displayName": "Last Studied",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Mastery Level",
+              "displayName": "Mastery Level",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "0b05697f-5094-4c4c-8e80-07524557ab0d",
+      "name": "Sheets - Update Study Progress",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -576,
+        1488
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "qf1",
+              "name": "responseText",
+              "value": "=Quiz graded! Score: {{ $('Code - Calculate Quiz Score').item.json.score }}% ({{ $('Code - Calculate Quiz Score').item.json.correctAnswers }}/{{ $('Code - Calculate Quiz Score').item.json.numberOfQuestions }}). Performance: {{ $('Code - Calculate Quiz Score').item.json.performanceLevel }}. Keep practicing the topics you missed - reply 'what should I study next?' for a plan.",
+              "type": "string"
+            },
+            {
+              "id": "qf2",
+              "name": "responseType",
+              "value": "QUIZ_RESULT",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1d94b1f-fac1-4431-b421-992d0c1686b4",
+      "name": "Edit Fields - Prepare Quiz Feedback",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        1440
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "qz1",
+              "name": "quizPrompt",
+              "value": "=Generate a multiple-choice quiz. Course: {{ $json.course }} | Topic: {{ $json.topic }}. Student request: \"{{ $('Code - Assemble Student Context').item.json.messageText }}\". Default to 10 questions if no number is given. Each question must have 4 options (A-D) and one correct answer.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ee776f30-c009-498d-95f4-44efb79eaf61",
+      "name": "Edit Fields - Build Quiz Spec",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1984,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.quizPrompt }}\nReturn strict JSON: { \"questions\": [ { \"q\": \"...\", \"options\": [\"A ...\",\"B ...\",\"C ...\",\"D ...\"], \"answer\": \"A\" } ] }",
+        "batching": {}
+      },
+      "id": "17c1da0b-ac5f-4a12-9b5f-84ec5fe71ac2",
+      "name": "LLM - Generate Quiz",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -1760,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "c55ba580-db78-4d7e-8541-2c58838df934",
+      "name": "LLM - Quiz Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1680,
+        2000
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AAH5WrWvVrr7fa6B",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const LF = String.fromCharCode(10);\nconst rawText = String($json.text || $json.output || '').trim();\n\nlet data = {};\n\ntry {\n  // Remove Markdown code fences if the model returns ```json ... ```\n  const cleaned = rawText\n    .replace(/^```(?:json)?\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n\n  data = JSON.parse(cleaned);\n} catch (error) {\n  // Try to extract the JSON object from surrounding explanation text\n  const start = rawText.indexOf('{');\n  const end = rawText.lastIndexOf('}');\n\n  if (start >= 0 && end > start) {\n    try {\n      data = JSON.parse(rawText.slice(start, end + 1));\n    } catch (secondError) {\n      data = {};\n    }\n  }\n}\n\nconst questions = Array.isArray(data.questions)\n  ? data.questions.filter((question) =>\n      question &&\n      typeof question.q === 'string' &&\n      Array.isArray(question.options) &&\n      question.options.length === 4 &&\n      typeof question.answer === 'string'\n    )\n  : [];\n\nif (questions.length === 0) {\n  return {\n    json: {\n      quizGenerationFailed: true,\n      quizMessage: 'I could not generate a valid quiz this time. Please try again with a specific course and topic.'\n    }\n  };\n}\n\nconst quizId = `QZ-${Date.now()}`;\nconst answerKey = questions\n  .map((question) => question.answer.trim().charAt(0).toUpperCase())\n  .join(',');\n\nlet quizMessage = `Quiz ${quizId}`;\n\nquestions.forEach((question, index) => {\n  quizMessage +=\n    LF + LF +\n    `${index + 1}) ${question.q}` +\n    LF +\n    question.options.join(LF);\n});\n\nquizMessage +=\n  LF + LF +\n  `Reply with: Quiz ${quizId} answers: A,B,C,... to get your score.`;\n\nreturn {\n  json: {\n    quizGenerationFailed: false,\n    quizId,\n    course: $('Code - Validate Classification').item.json.course,\n    topic: $('Code - Validate Classification').item.json.topic,\n    numberOfQuestions: questions.length,\n    answerKey,\n    quizMessage\n  }\n};\n"
+      },
+      "id": "26449332-f6b5-4c3e-b2dc-75d3a79d9e07",
+      "name": "Code - Format Quiz & Answer Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1408,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Quizzes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Quiz ID": "={{ $json.quizId }}",
+            "Student ID": "={{ $('Code - Assemble Student Context').item.json.studentId }}",
+            "Course": "={{ $json.course }}",
+            "Topic": "={{ $json.topic }}",
+            "Number of Questions": "={{ $json.numberOfQuestions }}",
+            "Answer Key": "={{ $json.answerKey }}",
+            "Issued At": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "Quiz ID",
+              "displayName": "Quiz ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Course",
+              "displayName": "Course",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Number of Questions",
+              "displayName": "Number of Questions",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Answer Key",
+              "displayName": "Answer Key",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Issued At",
+              "displayName": "Issued At",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "047b8381-ccd6-47ad-bf4d-b8b3133cf6e9",
+      "name": "Sheets - Save Quiz",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -576,
+        1792
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "qm1",
+              "name": "responseText",
+              "value": "={{ $('Code - Format Quiz & Answer Key').item.json.quizMessage }}",
+              "type": "string"
+            },
+            {
+              "id": "qm2",
+              "name": "responseType",
+              "value": "QUIZ",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "335a0a14-4bf2-46a6-ab7e-2d264e07a431",
+      "name": "Edit Fields - Prepare Quiz Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        1744
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const msg = ($(\"Code - Assemble Student Context\").item.json.messageText || \"\").toLowerCase();\nconst m = msg.match(/(\\d+)\\s*(day|days|week|weeks)/);\nlet days = 7;\nif (m) { days = parseInt(m[1], 10); if (/week/.test(m[2])) days = days * 7; }\nreturn { json: {\n  daysUntilExam: days,\n  course: $(\"Code - Validate Classification\").item.json.course,\n  topic: $(\"Code - Validate Classification\").item.json.topic,\n} };"
+      },
+      "id": "cfc07918-f3a5-45d6-a024-0c1b24098efe",
+      "name": "Code - Parse Exam Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        2160
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Study Progress"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Student ID",
+              "lookupValue": "={{ $('Code - Assemble Student Context').item.json.studentId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f0d455c2-396c-4d0f-91ad-3f9cb262dc66",
+      "name": "Sheets - Read Progress For Plan",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1408,
+        2160
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create a personalized day-by-day study plan. Course: {{ $('Code - Parse Exam Details').item.json.course }}. Days until exam: {{ $('Code - Parse Exam Details').item.json.daysUntilExam }}. Student level: {{ $('Code - Assemble Student Context').item.json.explanationLevel }}. Prioritize weak topics. Keep it concise and WhatsApp-friendly with a schedule per day.",
+        "batching": {}
+      },
+      "id": "086ff089-d477-4bf9-a156-69b8157bae76",
+      "name": "LLM - Generate Study Plan",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -640,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "8d8883ca-f281-43ce-afc5-f7e3cb53abd3",
+      "name": "LLM - Plan Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -560,
+        2304
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "AAH5WrWvVrr7fa6B",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "pl1",
+              "name": "responseText",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "pl2",
+              "name": "responseType",
+              "value": "STUDY_PLAN",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f214ad31-f13e-4b4e-868c-490b81d0372c",
+      "name": "Edit Fields - Format Study Plan",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        2032
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Study Progress"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Student ID",
+              "lookupValue": "={{ $('Code - Assemble Student Context').item.json.studentId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b9d59ee3-fee4-4cb1-9210-50bb0fc66b55",
+      "name": "Sheets - Read Study Progress",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -2208,
+        2352
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "progressRows",
+        "options": {}
+      },
+      "id": "e98ca29f-4191-416c-a421-081568f78a72",
+      "name": "Aggregate - Combine Progress Rows",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -1984,
+        2352
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rows = Array.isArray($json.progressRows)\n  ? $json.progressRows\n  : [];\n\nconst weakTopics = [];\nconst strongTopics = [];\n\nfor (const row of rows) {\n  const score = Number(row[\"Quiz Score\"] || 0);\n  const topic = String(row.Topic || \"\").trim();\n\n  if (!topic) continue;\n\n  if (score < 60) {\n    weakTopics.push(`${topic} (${score}%)`);\n  } else {\n    strongTopics.push(`${topic} (${score}%)`);\n  }\n}\n\nreturn {\n  json: {\n    weakTopics,\n    strongTopics,\n    progressSummary: `Weak topics: ${weakTopics.join(\", \") || \"None\"}. Strong topics: ${strongTopics.join(\", \") || \"None\"}.`\n  }\n};\n"
+      },
+      "id": "3f82b4f9-976c-4e89-8dc8-d4be211e2302",
+      "name": "Code - Analyze Progress",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        2352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "pr1",
+              "name": "agentPrompt",
+              "value": "=The student asks about their PROGRESS / what to study next. Weak topics: {{ $json.weakTopics }}. Strong topics: {{ $json.strongTopics }}. Recommend the next 2-3 topics to focus on, explain why, and use the course materials tool if you need topic details. Original message: \"{{ $('Code - Assemble Student Context').item.json.messageText }}\".",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "afc06487-4839-43e2-bba3-6af4426fd5cb",
+      "name": "Edit Fields - Build Progress Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1408,
+        2352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ci1",
+              "name": "agentPrompt",
+              "value": "=The student asks for COURSE INFORMATION. Course: {{ $json.course }}. Message: \"{{ $('Code - Assemble Student Context').item.json.messageText }}\". Search the course materials/policies and answer only from retrieved content. If not found, say so and offer human support.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "44aa8bdd-1dca-4c34-b81d-ca9e27694621",
+      "name": "Edit Fields - Build Course Info Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1408,
+        2544
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "gi1",
+              "name": "agentPrompt",
+              "value": "=The student sent a GENERAL message. Message: \"{{ $('Code - Assemble Student Context').item.json.messageText }}\". Respond helpfully as a study assistant and guide them to what you can do (explain, summarize, quiz, plan, progress).",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6290cc0c-6845-46ba-8bae-b1e6e57a55f9",
+      "name": "Edit Fields - Build General Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1072,
+        2704
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0",
+          "mode": "list",
+          "cachedResultName": "AI Student Assistant DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ccr94CducznpdB6ZDELHcg5rib3f_elwMVnGKfk5Il0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Escalations"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Incident ID": "={{ \"SUP-\" + $now.toMillis() }}",
+            "Student ID": "={{ $('Code - Assemble Student Context').item.json.studentId }}",
+            "WhatsApp Number": "={{ $('Code - Assemble Student Context').item.json.waNumber }}",
+            "Message": "={{ $('Code - Assemble Student Context').item.json.messageText }}",
+            "Intent": "HUMAN_SUPPORT",
+            "Priority": "NORMAL",
+            "Status": "OPEN",
+            "Created At": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "Incident ID",
+              "displayName": "Incident ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Student ID",
+              "displayName": "Student ID",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "WhatsApp Number",
+              "displayName": "WhatsApp Number",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Message",
+              "displayName": "Message",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Intent",
+              "displayName": "Intent",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Priority",
+              "displayName": "Priority",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "Created At",
+              "displayName": "Created At",
+              "type": "string",
+              "required": false,
+              "display": true,
+              "canBeUsedToMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "aed8716b-b368-42e7-a6bb-3d5af63e76bd",
+      "name": "Sheets - Log Support Request",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -544,
+        2880
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MU1voFcd0u0PSmgJ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "su1",
+              "name": "responseText",
+              "value": "I have logged your request and a member of the academic support team will follow up with you. Meanwhile, I can still help you study, summarize, or quiz you - just ask.",
+              "type": "string"
+            },
+            {
+              "id": "su2",
+              "name": "responseType",
+              "value": "HUMAN_SUPPORT",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "399f7b9a-bcb8-49d1-b8ff-4c7bc2fec82e",
+      "name": "Edit Fields - Prepare Support Ack",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        0,
+        2752
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "un1",
+              "name": "responseText",
+              "value": "I am not sure what you need yet. I can: explain a topic, solve a question, summarize material, make a quiz, build a study plan, or show your progress. What would you like?",
+              "type": "string"
+            },
+            {
+              "id": "un2",
+              "name": "responseType",
+              "value": "UNKNOWN",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cbceb01a-de62-4dfe-b853-ace9f5f76828",
+      "name": "Edit Fields - Prepare Unknown Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        16,
+        3120
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $('Edit Fields - Prepare Invalid Reply').item.json.instance }}",
+        "remoteJid": "={{ $('Edit Fields - Prepare Invalid Reply').item.json.waNumber }}",
+        "messageText": "={{ $('Edit Fields - Prepare Invalid Reply').item.json.responseText }}",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -5808,
+        768
+      ],
+      "id": "02d84d47-068b-409b-81d0-2d51ea66cf04",
+      "name": "Send text",
+      "credentials": {
+        "evolutionApi": {
+          "id": "FL97kVtmDrKqFkxn",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $('Code - Normalize Incoming Payload').item.json.instance }}",
+        "remoteJid": "=967737496669",
+        "messageText": "there is a problem check it the database",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -976,
+        -32
+      ],
+      "id": "0f61ecc5-fdaa-43e4-9b84-db543e3909d7",
+      "name": "Send text1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "FL97kVtmDrKqFkxn",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $('Code - Normalize Incoming Payload').item.json.instance }}",
+        "remoteJid": "={{ $('Edit Fields - Finalize Response').item.json.waNumber }}",
+        "messageText": "={{ $('Edit Fields - Finalize Response').item.json.responseText }}",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        960,
+        1072
+      ],
+      "id": "c12e7bdf-87b9-495d-85b8-8d62fce6a652",
+      "name": "Send text2",
+      "credentials": {
+        "evolutionApi": {
+          "id": "FL97kVtmDrKqFkxn",
+          "name": "Evolution account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "chat-api",
+        "operation": "send-presence",
+        "instanceName": "={{ $json.instance }}",
+        "remoteJid": "={{ $json.waNumber }}",
+        "delay": 3000
+      },
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -5968,
+        768
+      ],
+      "id": "4632a0ab-f52c-4fe7-b06b-8579725c114b",
+      "name": "Send presence1",
+      "credentials": {
+        "evolutionApi": {
+          "id": "FL97kVtmDrKqFkxn",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "learningAssistant",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -6832,
+        1008
+      ],
+      "id": "6a31d7ea-6f40-4e44-ad2d-ca926679e078",
+      "name": "Webhook",
+      "webhookId": "cd251af4-43be-420f-8492-cb39e98ce669"
+    },
+    {
+      "parameters": {
+        "resource": "chat-api",
+        "operation": "send-presence",
+        "instanceName": "={{ $('Code - Normalize Incoming Payload').item.json.instance }}",
+        "remoteJid": "={{ $json.waNumber }}",
+        "delay": 3000
+      },
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        736,
+        1248
+      ],
+      "id": "e8eecc44-34db-4c59-af04-3bbb6f003165",
+      "name": "Send presence",
+      "credentials": {
+        "evolutionApi": {
+          "id": "FL97kVtmDrKqFkxn",
+          "name": "Evolution account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "content-type": "application/json",
+            "user-agent": "axios/1.13.2",
+            "content-length": "1285",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "host": "host.docker.internal:5678",
+            "connection": "keep-alive"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "event": "messages.upsert",
+            "instance": "learningAssistant",
+            "data": {
+              "key": {
+                "remoteJid": "967778877248@s.whatsapp.net",
+                "remoteJidAlt": "967778877248@s.whatsapp.net",
+                "fromMe": false,
+                "id": "AC40E4DE16DFE7B477C6428C95F83AEC",
+                "participant": "",
+                "addressingMode": "lid"
+              },
+              "pushName": "A$",
+              "status": "DELIVERY_ACK",
+              "message": {
+                "conversation": "Quiz QZ-1787179852618 answers: A, C, B, A, C",
+                "messageContextInfo": {
+                  "threadId": [],
+                  "deviceListMetadata": {
+                    "senderKeyIndexes": [],
+                    "recipientKeyIndexes": [],
+                    "recipientKeyHash": {
+                      "0": 20,
+                      "1": 124,
+                      "2": 42,
+                      "3": 147,
+                      "4": 224,
+                      "5": 0,
+                      "6": 181,
+                      "7": 38,
+                      "8": 150,
+                      "9": 66
+                    },
+                    "recipientTimestamp": {
+                      "low": 1787151255,
+                      "high": 0,
+                      "unsigned": true
+                    }
+                  },
+                  "deviceListMetadataVersion": 2,
+                  "messageSecret": {
+                    "0": 81,
+                    "1": 231,
+                    "2": 116,
+                    "3": 59,
+                    "4": 86,
+                    "5": 190,
+                    "6": 27,
+                    "7": 142,
+                    "8": 221,
+                    "9": 65,
+                    "10": 128,
+                    "11": 254,
+                    "12": 55,
+                    "13": 124,
+                    "14": 254,
+                    "15": 215,
+                    "16": 176,
+                    "17": 84,
+                    "18": 221,
+                    "19": 154,
+                    "20": 133,
+                    "21": 27,
+                    "22": 64,
+                    "23": 177,
+                    "24": 202,
+                    "25": 202,
+                    "26": 32,
+                    "27": 78,
+                    "28": 181,
+                    "29": 84,
+                    "30": 39,
+                    "31": 108
+                  }
+                }
+              },
+              "messageType": "conversation",
+              "messageTimestamp": 1787179894,
+              "instanceId": "f6da224f-8b52-4d46-824a-33bf20195ab1",
+              "source": "android"
+            },
+            "destination": "http://host.docker.internal:5678/webhook/learningAssistant",
+            "date_time": "2026-08-19T19:51:32.561Z",
+            "sender": "967737496669@s.whatsapp.net",
+            "server_url": "http://localhost:8080",
+            "apikey": null
+          },
+          "webhookUrl": "http://localhost:5678/webhook/learningAssistant",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Code - Normalize Incoming Payload": {
+      "main": [
+        [
+          {
+            "node": "IF - Valid Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Valid Message?": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Find Student",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Prepare Invalid Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Find Student": {
+      "main": [
+        [
+          {
+            "node": "IF - Student Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Student Exists?": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Update Last Activity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code - Build New Student Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Update Last Activity": {
+      "main": [
+        [
+          {
+            "node": "Code - Assemble Student Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Build New Student Profile": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Create Student Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Create Student Profile": {
+      "main": [
+        [
+          {
+            "node": "Code - Assemble Student Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Prepare Invalid Reply": {
+      "main": [
+        [
+          {
+            "node": "Send presence1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Assemble Student Context": {
+      "main": [
+        [
+          {
+            "node": "AI - Classify Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Classify Intent": {
+      "main": [
+        [
+          {
+            "node": "Code - Validate Classification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Classification Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Intent Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI - Classify Intent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser - Intent Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI - Classify Intent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Validate Classification": {
+      "main": [
+        [
+          {
+            "node": "IF - Emergency or Human Required?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Classification Fallback": {
+      "main": [
+        [
+          {
+            "node": "Code - Validate Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Emergency or Human Required?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Mark High Priority",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch - Student Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Mark High Priority": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Log Emergency Incident",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Log Emergency Incident": {
+      "main": [
+        [
+          {
+            "node": "Send text1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Prepare Emergency Ack": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Finalize Response": {
+      "main": [
+        [
+          {
+            "node": "Send presence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Student Intent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Build Explanation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Question Ambiguous?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Content Long?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF - Is Quiz Submission?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code - Parse Exam Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sheets - Read Study Progress",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Build Course Info Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Build General Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sheets - Log Support Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Prepare Unknown Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Build Explanation Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent - Student Assistant": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Format Agent Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - AI Fallback Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Assistant Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory - Conversation Buffer": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_course_materials": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings - KB": {
+      "ai_embedding": [
+        [
+          {
+            "node": "search_course_materials",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_wikipedia": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Format Agent Response": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - AI Fallback Reply": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Question Ambiguous?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Ask Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Build QA Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Ask Clarification": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Build QA Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Content Long?": {
+      "main": [
+        [
+          {
+            "node": "Code - Chunk Long Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LLM - Generate Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Chunk Long Content": {
+      "main": [
+        [
+          {
+            "node": "LLM - Generate Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Generate Summary": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Format Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Summary Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "LLM - Generate Summary",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Format Summary": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Is Quiz Submission?": {
+      "main": [
+        [
+          {
+            "node": "Code - Calculate Quiz Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields - Build Quiz Spec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Calculate Quiz Score": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Save Quiz Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Save Quiz Result": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Update Study Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Update Study Progress": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Prepare Quiz Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Prepare Quiz Feedback": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Build Quiz Spec": {
+      "main": [
+        [
+          {
+            "node": "LLM - Generate Quiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Generate Quiz": {
+      "main": [
+        [
+          {
+            "node": "Code - Format Quiz & Answer Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Quiz Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "LLM - Generate Quiz",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Format Quiz & Answer Key": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Save Quiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Save Quiz": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Prepare Quiz Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Prepare Quiz Message": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Parse Exam Details": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Read Progress For Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Read Progress For Plan": {
+      "main": [
+        [
+          {
+            "node": "LLM - Generate Study Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Generate Study Plan": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Format Study Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Plan Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "LLM - Generate Study Plan",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Format Study Plan": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Read Study Progress": {
+      "main": [
+        [
+          {
+            "node": "Aggregate - Combine Progress Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate - Combine Progress Rows": {
+      "main": [
+        [
+          {
+            "node": "Code - Analyze Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Analyze Progress": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Build Progress Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Build Progress Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Build Course Info Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Build General Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent - Student Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Log Support Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Prepare Support Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Prepare Support Ack": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields - Prepare Unknown Reply": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Finalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send text1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields - Prepare Emergency Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send text2": {
+      "main": [
+        [
+          {
+            "node": "Log - Save Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sheets - Log Send Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send presence1": {
+      "main": [
+        [
+          {
+            "node": "Send text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log - Save Conversation": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code - Normalize Incoming Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send presence": {
+      "main": [
+        [
+          {
+            "node": "Send text2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "JizAg8hOofeBTmRY",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "6b961777-df72-4051-a970-79549f6abb56",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "080e640055236bdfa0c31197094af5d4109b8571f2eedd03b2d3365132ff51b6"
+  },
+  "nodeGroups": [],
+  "id": "Rin2LuWTECazSPIk",
+  "tags": []
+}
